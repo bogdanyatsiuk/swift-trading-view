@@ -60,7 +60,7 @@ public struct Candles: Content {
             // Create and draw the body
             let bodyPath = Path { path in
                 path.addRect(
-                    CGRect(x: x - candleWidth / 2, y: bodyTop, width: candleWidth, height: bodyBottom - bodyTop)
+                    CGRect(x: x - candleWidth / 2, y: bodyTop, width: candleWidth, height: max(bodyBottom - bodyTop, 1))
                 )
             }
             context.fill(
