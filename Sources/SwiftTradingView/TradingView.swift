@@ -203,9 +203,9 @@ public struct TradingView: View {
                                 yBounds: yBounds
                             )
 
-                            // Draw Y axis first, without translation (spans entire visible width)
+                            // Draw Y axis grid lines first (background layer), without translation (spans entire visible width)
                             yAxis?
-                                .draw(
+                                .drawGridLines(
                                     contextInfo: axisContextInfo,
                                     candlesInfo: candlesInfo
                                 )
@@ -325,6 +325,13 @@ public struct TradingView: View {
                                     spacingY: legendSpacingY
                                 )
                             }
+
+                            // Draw Y axis labels on top (foreground layer) after all content is rendered
+                            yAxis?
+                                .drawLabels(
+                                    contextInfo: axisContextInfo,
+                                    candlesInfo: candlesInfo
+                                )
                         }
                         .frame(
                             width: CGFloat(data.count)

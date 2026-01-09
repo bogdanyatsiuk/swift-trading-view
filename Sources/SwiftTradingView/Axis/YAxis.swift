@@ -43,6 +43,59 @@ public struct YAxis: Axis {
         contextInfo: ContextInfo,
         candlesInfo: CandlesInfo
     ) {
+        drawGridLines(contextInfo: contextInfo, candlesInfo: candlesInfo)
+        drawLabels(contextInfo: contextInfo, candlesInfo: candlesInfo)
+    }
+
+    public func drawGridLines(
+        contextInfo: ContextInfo,
+        candlesInfo: CandlesInfo
+    ) {
+        guard labelsCount > 2 else {
+            return
+        }
+        let context = contextInfo.context
+        let contextSize = contextInfo.contextSize
+        let yBounds = contextInfo.yBounds
+
+        let yAxisLabels = stride(from: yBounds.min, through: yBounds.max, by: (yBounds.max - yBounds.min) / Double(labelsCount - 1))
+
+        // Draw y-axis grid lines
+        for value in yAxisLabels {
+            let y = contextInfo.yCoordinate(for: value)
+
+            // Draw horizontal line
+            let linePath = Path { path in
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: contextSize.width, y: y))
+            }
+            context.stroke(linePath, with: .color(lineColor), lineWidth: 1)
+        }
+
+        // Draw last price line
+        if let last = candlesInfo.data.last {
+            let color = last.open > last.close ? negativeCandleColor : positiveCandleColor
+            let value = last.close
+            let y = contextInfo.yCoordinate(for: value)
+
+            if contextInfo.visibleBounds.contains(CGPoint(x: contextInfo.visibleBounds.midX, y: y)) {
+                let linePath = Path { path in
+                    path.move(to: CGPoint(x: contextInfo.visibleBounds.minX, y: y))
+                    path.addLine(to: CGPoint(x: contextInfo.visibleBounds.maxX, y: y))
+                }
+                context.stroke(
+                    linePath,
+                    with: .color(color),
+                    style: .init(lineWidth: 1, dash: [2, 2])
+                )
+            }
+        }
+    }
+
+    public func drawLabels(
+        contextInfo: ContextInfo,
+        candlesInfo: CandlesInfo
+    ) {
         guard labelsCount > 2 else {
             return
         }
@@ -54,16 +107,9 @@ public struct YAxis: Axis {
 
         let labelX = contextInfo.visibleBounds.maxX
 
-        // Draw y-axis labels and lines
+        // Draw y-axis labels
         for value in yAxisLabels {
             let y = contextInfo.yCoordinate(for: value)
-
-            // Draw horizontal line
-            let linePath = Path { path in
-                path.move(to: CGPoint(x: 0, y: y))
-                path.addLine(to: CGPoint(x: contextSize.width, y: y))
-            }
-            context.stroke(linePath, with: .color(lineColor), lineWidth: 1)
             drawText(
                 context: context,
                 contextSize: contextSize,
@@ -72,23 +118,13 @@ public struct YAxis: Axis {
             )
         }
 
-        // Draw last price line
+        // Draw last price label
         if let last = candlesInfo.data.last {
             let color = last.open > last.close ? negativeCandleColor : positiveCandleColor
             let value = last.close
             let y = contextInfo.yCoordinate(for: value)
 
             if contextInfo.visibleBounds.contains(CGPoint(x: contextInfo.visibleBounds.midX, y: y)) {
-
-                let linePath = Path { path in
-                    path.move(to: CGPoint(x: contextInfo.visibleBounds.minX, y: y))
-                    path.addLine(to: CGPoint(x: contextInfo.visibleBounds.maxX, y: y))
-                }
-                context.stroke(
-                    linePath,
-                    with: .color(color),
-                    style: .init(lineWidth: 1, dash: [2, 2])
-                )
                 drawText(
                     context: context,
                     contextSize: contextSize,
@@ -96,7 +132,6 @@ public struct YAxis: Axis {
                     at: CGPoint(x: labelX, y: y),
                     color: color
                 )
-
             }
         }
     }
