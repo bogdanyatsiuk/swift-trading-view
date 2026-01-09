@@ -48,6 +48,9 @@ public struct TradingView: View {
     /// The spacing between individual candles.
     public let candleSpacing: CGFloat
 
+    /// The inset applied to the leading edge of the scroll view.
+    public let scrollLeadingInset: CGFloat
+
     /// The inset applied to the trailing edge of the scroll view.
     public let scrollTrailingInset: CGFloat
 
@@ -83,6 +86,7 @@ public struct TradingView: View {
     ///   - data: An array of `CandleData` representing the financial data to be displayed.
     ///   - candleWidth: The range of possible candle widths for zooming.
     ///   - candleSpacing: The spacing between individual candles.
+    ///   - scrollLeadingInset: The inset applied to the leading edge of the scroll view.
     ///   - scrollTrailingInset: The inset applied to the trailing edge of the scroll view.
     ///   - primaryContentHeight: The height of the primary content area. If nil, it will be calculated automatically.
     ///   - secondaryContentHeight: The height of each secondary content indicator.
@@ -100,6 +104,7 @@ public struct TradingView: View {
         data: [CandleData],
         candleWidth: ClosedRange<CGFloat> = 2...20,
         candleSpacing: CGFloat = 2,
+        scrollLeadingInset: CGFloat = 0,
         scrollTrailingInset: CGFloat = 0,
         primaryContentHeight: CGFloat? = nil,
         secondaryContentHeight: CGFloat = 100,
@@ -122,6 +127,7 @@ public struct TradingView: View {
         self.candleWidth = (candleWidth.lowerBound + candleWidth.upperBound) / 2
         self.candleWidthRange = candleWidth
         self.candleSpacing = candleSpacing
+        self.scrollLeadingInset = scrollLeadingInset
         self.scrollTrailingInset = scrollTrailingInset
         self.secondaryContent = secondaryContent
         self.secondaryContentHeight = secondaryContentHeight
@@ -168,6 +174,7 @@ public struct TradingView: View {
                             let legend = zipped.map({
                                 $0.0.legend(candlesInfo: candlesInfo, calculatedData: $0.1)
                             }).flatMap { $0 }
+                            // Calculate legend size using non-translated context for measurement
                             let legendSize = legendSize(
                                 for: legend,
                                 context: context,
@@ -178,7 +185,9 @@ public struct TradingView: View {
                                 spacingX: legendSpacingX,
                                 spacingY: legendSpacingY
                             )
-                            let contextInfo = ContextInfo(
+
+                            // Context info for axes - spans the entire visible area
+                            let axisContextInfo = ContextInfo(
                                 context: context,
                                 contextSize: size,
                                 visibleBounds: CGRect(
@@ -193,30 +202,56 @@ public struct TradingView: View {
                                 candleSpacing: candleSpacing,
                                 yBounds: yBounds
                             )
+
+                            // Draw Y axis first, without translation (spans entire visible width)
                             yAxis?
                                 .draw(
-                                    contextInfo: contextInfo,
+                                    contextInfo: axisContextInfo,
                                     candlesInfo: candlesInfo
                                 )
+
+                            // Translate the context to account for leading inset
+                            var translatedContext = context
+                            translatedContext.translateBy(x: scrollLeadingInset, y: 0)
+                            let adjustedScrollOffset = scrollOffset - scrollLeadingInset
+
+                            // Context info for content - uses translated coordinates
+                            let contentContextInfo = ContextInfo(
+                                context: translatedContext,
+                                contextSize: size,
+                                visibleBounds: CGRect(
+                                    origin: CGPoint(x: adjustedScrollOffset, y: contentPaddingTop + legendSize.height),
+                                    size: CGSize(
+                                        width: width,
+                                        height: size.height
+                                            - primaryContentBottomOffset - contentPaddingTop - legendSize.height
+                                    )
+                                ),
+                                candleWidth: candleWidth,
+                                candleSpacing: candleSpacing,
+                                yBounds: yBounds
+                            )
+
+                            // Draw X axis with translated context (aligned with content)
                             xAxis?
                                 .draw(
-                                    contextInfo: contextInfo,
+                                    contextInfo: contentContextInfo,
                                     candlesInfo: candlesInfo
                                 )
                             zipped
                                 .forEach {
                                     $0.0.draw(
-                                        contextInfo: contextInfo,
+                                        contextInfo: contentContextInfo,
                                         candlesInfo: candlesInfo,
                                         calculatedData: $0.1
                                     )
                                 }
 
                             drawLegend(
-                                context: context,
+                                context: translatedContext,
                                 bounds: CGRect(
                                     origin: CGPoint(
-                                        x: scrollOffset + legendPaddingLeading,
+                                        x: adjustedScrollOffset + legendPaddingLeading,
                                         y: contentPaddingTop
                                     ),
                                     size: CGSize(
@@ -248,12 +283,12 @@ public struct TradingView: View {
                                     spacingX: legendSpacingX,
                                     spacingY: legendSpacingY
                                 )
-                                let contextInfo = ContextInfo(
-                                    context: context,
+                                let secondaryContextInfo = ContextInfo(
+                                    context: translatedContext,
                                     contextSize: size,
                                     visibleBounds: CGRect(
                                         origin: CGPoint(
-                                            x: scrollOffset,
+                                            x: adjustedScrollOffset,
                                             y: y + legendSize.height
                                         ),
                                         size: CGSize(
@@ -266,15 +301,15 @@ public struct TradingView: View {
                                     yBounds: (min: calculatedData.min, max: calculatedData.max)
                                 )
                                 content.draw(
-                                    contextInfo: contextInfo,
+                                    contextInfo: secondaryContextInfo,
                                     candlesInfo: candlesInfo,
                                     calculatedData: calculatedData
                                 )
                                 drawLegend(
-                                    context: context,
+                                    context: translatedContext,
                                     bounds: CGRect(
                                         origin: CGPoint(
-                                            x: scrollOffset + legendPaddingLeading,
+                                            x: adjustedScrollOffset + legendPaddingLeading,
                                             y: y
                                         ),
                                         size: CGSize(
@@ -294,6 +329,7 @@ public struct TradingView: View {
                         .frame(
                             width: CGFloat(data.count)
                                 * (candleWidth + candleSpacing)
+                                + scrollLeadingInset
                                 + scrollTrailingInset,
                             height: primaryContentHeight != nil
                                 ? primaryContentHeight! + contentPaddingTop + contentPaddingBottom
@@ -318,6 +354,7 @@ public struct TradingView: View {
                     // Calculate if we're at the end
                     let contentWidth =
                         CGFloat(data.count) * (candleWidth + candleSpacing)
+                        + scrollLeadingInset
                         + scrollTrailingInset
                     let viewportWidth = geometry.size.width
                     isScrollAtEnd = abs(value) >= contentWidth - viewportWidth - 1  // 1 point tolerance
@@ -337,9 +374,11 @@ public struct TradingView: View {
                                 if candleWidthRange.contains(newScale) {
                                     let oldContentWidth =
                                     CGFloat(data.count) * (candleWidth + candleSpacing)
+                                    + scrollLeadingInset
                                     + scrollTrailingInset
                                     let newContentWidth =
                                     CGFloat(data.count) * (newScale + candleSpacing)
+                                    + scrollLeadingInset
                                     + scrollTrailingInset
                                     let viewportWidth = geometry.size.width
 
@@ -409,7 +448,7 @@ public struct TradingView: View {
     private func candlesInfo(for visibleSize: CGSize) -> CandlesInfo? {
         let visibleItemCount =
             Int(visibleSize.width / (candleWidth + candleSpacing)) + 1
-        let startIndex = max(0, Int(scrollOffset / (candleWidth + candleSpacing)))
+        let startIndex = max(0, Int((scrollOffset - scrollLeadingInset) / (candleWidth + candleSpacing)))
         let endIndex = min(data.count, startIndex + visibleItemCount)
         return CandlesInfo(
             data: data,
