@@ -229,7 +229,8 @@ public struct TradingView: View {
                                 ),
                                 candleWidth: candleWidth,
                                 candleSpacing: candleSpacing,
-                                yBounds: yBounds
+                                yBounds: yBounds,
+                                xTranslation: scrollLeadingInset
                             )
 
                             // Draw X axis with translated context (aligned with content)

@@ -28,6 +28,8 @@ public struct ContextInfo {
     /// The scale factor for converting y-values to pixel coordinates.
     public var yScale: CGFloat
 
+    public var xTranslation: CGFloat
+
     /// Initializes a new instance of `ContextInfo`.
     ///
     /// - Parameters:
@@ -38,13 +40,15 @@ public struct ContextInfo {
     ///   - candleSpacing: The spacing between each candle in the chart.
     ///   - verticalPadding: The vertical padding at the top and bottom of the chart.
     ///   - yBounds: The minimum and maximum y-values in the visible range of the chart.
+    ///   - xTranslation: X translation of Context
     public init(
         context: GraphicsContext,
         contextSize: CGSize,
         visibleBounds: CGRect,
         candleWidth: CGFloat,
         candleSpacing: CGFloat,
-        yBounds: (min: Double, max: Double)
+        yBounds: (min: Double, max: Double),
+        xTranslation: CGFloat = 0
     ) {
         self.context = context
         self.contextSize = contextSize
@@ -53,6 +57,7 @@ public struct ContextInfo {
         self.candleSpacing = candleSpacing
         self.yBounds = yBounds
         self.yScale = (visibleBounds.height) / CGFloat(yBounds.max - yBounds.min)
+        self.xTranslation = xTranslation
     }
 
     /// The total width of a candle, including its spacing.
@@ -74,5 +79,15 @@ public struct ContextInfo {
     /// - Returns: The corresponding x-coordinate in the context.
     public func xCoordinate(for index: Int) -> CGFloat {
         return CGFloat(index) * totalCandleWidth + (candleWidth / 2)
+    }
+
+    /// Converts X coordinate to the candle index
+    public func index(at xCoordinate: CGFloat) -> Int {
+        return Int(((xCoordinate - xTranslation - candleWidth / 2) / totalCandleWidth).rounded())
+    }
+
+    /// Converts Y coordinate to the corresponding y-value
+    public func value(at yCoordinate: CGFloat) -> Double {
+        return yBounds.max - (yCoordinate - visibleBounds.minY) / yScale
     }
 }
